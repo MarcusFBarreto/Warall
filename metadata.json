@@ -1,0 +1,6 @@
+{
+  "name": "Studio Criativo",
+  "description": "Plataforma de desenvolvimento e prototipagem de aplicações web modernas e interativas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
