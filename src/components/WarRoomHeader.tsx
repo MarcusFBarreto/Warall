@@ -23,7 +23,8 @@ import {
   TrendingUp,
   Save,
   Check,
-  Trophy
+  Trophy,
+  LogOut
 } from 'lucide-react';
 
 interface WarRoomHeaderProps {
@@ -48,6 +49,7 @@ interface WarRoomHeaderProps {
   winner?: Player | null;
   onOpenVictory?: () => void;
   onNewGame: () => void;
+  onResetProfile?: () => void;
   onAdvancePhase: () => void;
   onAutoDistribute?: () => void;
 }
@@ -83,6 +85,7 @@ export const WarRoomHeader: React.FC<WarRoomHeaderProps> = ({
   winner,
   onOpenVictory,
   onNewGame,
+  onResetProfile,
   onAdvancePhase,
   onAutoDistribute
 }) => {
@@ -90,6 +93,7 @@ export const WarRoomHeader: React.FC<WarRoomHeaderProps> = ({
   const [internalFullscreen, setInternalFullscreen] = useState<boolean>(false);
   const activeFullscreen = externalIsFullscreen !== undefined ? externalIsFullscreen : internalFullscreen;
   const [isSavedFeedback, setIsSavedFeedback] = useState<boolean>(false);
+
 
   const handleManualSave = () => {
     if (onSaveGame) {
@@ -301,6 +305,16 @@ export const WarRoomHeader: React.FC<WarRoomHeaderProps> = ({
           >
             <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
+
+          {onResetProfile && (
+            <button
+              onClick={onResetProfile}
+              className="p-1.5 sm:p-2 rounded-lg bg-red-950/40 hover:bg-red-900/60 border border-red-900/30 text-red-400 hover:text-red-300 transition"
+              title="Apagar Perfil e Resetar Carreira"
+            >
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          )}
         </div>
       </div>
 

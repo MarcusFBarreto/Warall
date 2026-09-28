@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { PlayerColor } from '../types/game';
 import { Swords, Users, Bot, User, Check, Play, ShieldAlert, RotateCcw, Award } from 'lucide-react';
 import { CareerProfile, MILITARY_RANKS } from '../types/career';
+import { PlayerProfile } from '../types/player';
 
 interface PlayerConfig {
   name: string;
@@ -19,6 +20,7 @@ interface NewGameModalProps {
   onCancel?: () => void;
   initialCareerMode?: boolean;
   careerProfile?: CareerProfile;
+  playerProfile?: PlayerProfile | null;
   onResetCareer?: () => void;
 }
 
@@ -36,13 +38,14 @@ export const NewGameModal: React.FC<NewGameModalProps> = ({
   onCancel,
   initialCareerMode = true,
   careerProfile,
+  playerProfile,
   onResetCareer
 }) => {
   const [careerMode, setCareerMode] = useState<boolean>(initialCareerMode);
   const [confirmReset, setConfirmReset] = useState<boolean>(false);
   const [playerCount, setPlayerCount] = useState<number>(4);
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([
-    { name: 'Marcus (Você)', color: 'blue', isAi: false },
+    { name: playerProfile ? `${playerProfile.nickname} (Você)` : 'General (Você)', color: 'blue', isAi: false },
     { name: 'Gen. Montgomery', color: 'red', isAi: true },
     { name: 'Gen. Rommel', color: 'yellow', isAi: true },
     { name: 'Gen. Patton', color: 'green', isAi: true },

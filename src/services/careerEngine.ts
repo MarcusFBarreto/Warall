@@ -1,12 +1,70 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
+import { MilitaryRankId, CareerProfile, CommandDispatch, MILITARY_RANKS, SubordinateOutcome } from '../types/career';
 import { Player, TerritoryState, GamePhase, CombatResult } from '../types/game';
-import { TERRITORIES, TERRITORIES_MAP } from '../data/territories';
-import { CONTINENTS } from '../data/continents';
-import { CommandDispatch, MilitaryRankId, MILITARY_RANKS, CareerProfile, SubordinateOutcome } from '../types/career';
+import { TERRITORIES_MAP } from '../data/territories';
+
+// Definição dos limiares de XP
+export const RANK_THRESHOLDS: Record<MilitaryRankId, number> = {
+  cadet: 0,
+  captain: 500,
+  major: 1500,
+  marshal: 3000
+};
+
+// Nomes de exibição
+export const RANK_NAMES: Record<MilitaryRankId, string> = {
+  cadet: 'Cadete',
+  captain: 'Capitão',
+  major: 'Major-General',
+  marshal: 'Marechal'
+};
+
+export type ActionType = 
+  | 'TERRITORY_CONQUERED' 
+  | 'CONTINENT_SECURED' 
+  | 'GENERAL_DEFEATED' 
+  | 'CAMPAIGN_WON';
+
+// Quanto vale cada ação
+const XP_AWARDS: Record<ActionType, number> = {
+  TERRITORY_CONQUERED: 10,
+  CONTINENT_SECURED: 50,
+  GENERAL_DEFEATED: 150,
+  CAMPAIGN_WON: 500
+};
+
+/**
+ * Retorna a patente correta com base no XP total.
+ */
+export const evaluateRank = (xp: number): MilitaryRankId => {
+  if (xp >= RANK_THRESHOLDS.marshal) return 'marshal';
+  if (xp >= RANK_THRESHOLDS.major) return 'major';
+  if (xp >= RANK_THRESHOLDS.captain) return 'captain';
+  return 'cadet';
+};
+
+/**
+ * Processa um evento militar e retorna o Perfil atualizado com XP e estatísticas computadas.
+ */
+export const processMilitaryAction = (
+  currentProfile: CareerProfile, 
+  action: ActionType
+): CareerProfile => {
+  
+  const xpGained = XP_AWARDS[action];
+  const newXp = currentProfile.xp + xpGained;
+  const newRank = evaluateRank(newXp);
+
+  return {
+    ...currentProfile,
+    xp: newXp,
+    rankId: newRank,
+    battlesWon: action === 'TERRITORY_CONQUERED' ? currentProfile.battlesWon + 1 : currentProfile.battlesWon,
+    territoriesConquered: action === 'TERRITORY_CONQUERED' ? currentProfile.territoriesConquered + 1 : currentProfile.territoriesConquered,
+    continentsConquered: action === 'CONTINENT_SECURED' ? currentProfile.continentsConquered + 1 : currentProfile.continentsConquered,
+    generalsDefeated: action === 'GENERAL_DEFEATED' ? currentProfile.generalsDefeated + 1 : currentProfile.generalsDefeated,
+    campaignsWon: action === 'CAMPAIGN_WON' ? currentProfile.campaignsWon + 1 : currentProfile.campaignsWon
+  };
+};
 
 const ADVISORS = [
   { name: 'Gen. Bradley', role: 'Chefe do Estado-Maior Aliado' },
@@ -412,18 +470,12 @@ export function evaluateSubordinateCombat(
   }
 
   // CASE B: Subordinate did NOT follow the High Command's requested target!
-  // The 3 user-specified possibilities:
-
-  // 1) "Deu ruim" (Insubordinação desastrosa / Advertência disciplinar):
-  // Conditions: Did not conquer AND suffered casualties, or suffered more casualties than defender
   const isDisaster = !result.conquered && (
     result.attackerLosses > result.defenderLosses ||
     (result.attackerLosses >= 2 && result.defenderLosses === 0) ||
     result.attackerLosses >= 2
   );
 
-  // 2) "Deu bom - melhor que o comando esperava" (Iniciativa tática genial / Audácia condecorada):
-  // Conditions: Conquered the unassigned territory! OR wiped out 2+ defenders with minimal/zero casualties!
   const isHeroic = result.conquered || (result.defenderLosses >= 2 && result.attackerLosses <= 1);
 
   if (isHeroic) {
@@ -472,7 +524,6 @@ export function evaluateSubordinateCombat(
     };
   }
 
-  // 3) "Não alterou o cenário para melhor ou pior" (Desvio neutro / Sem impacto relevante)
   return {
     dispatch: {
       id: `combat_eval_neutral_${Date.now()}`,

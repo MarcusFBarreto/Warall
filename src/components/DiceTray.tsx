@@ -7,8 +7,10 @@ import React, { useState, useEffect } from 'react';
 import { Territory, TerritoryState, Player, CombatResult } from '../types/game';
 import { sounds } from '../utils/audio';
 import { Swords, Shield, Skull, ArrowRight, Check, X, Flame, Sparkles } from 'lucide-react';
+import { Dice } from './Dice';
 
 interface DiceTrayProps {
+  autoRoll?: boolean;
   attacker: Player;
   defender: Player;
   fromTerritory: Territory;
@@ -20,6 +22,7 @@ interface DiceTrayProps {
 }
 
 export const DiceTray: React.FC<DiceTrayProps> = ({
+  autoRoll,
   attacker,
   defender,
   fromTerritory,
@@ -141,106 +144,15 @@ export const DiceTray: React.FC<DiceTrayProps> = ({
     onClose();
   };
 
-  // Render physical Die with pips pattern and 3D beveling
+  useEffect(() => {
+    if (autoRoll && !rolling && !lastResult) {
+      handleRollDice();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRoll]);
+
   const renderDieFace = (val: number, isAttack: boolean, lost: boolean, index: number) => {
-    const isClashing = clashingPair === index;
-
-    // Classic 1-6 pip dot layout
-    const renderPips = (num: number) => {
-      const dotColor = isAttack ? 'bg-white' : 'bg-stone-900';
-      switch (num) {
-        case 1:
-          return (
-            <div className="w-full h-full flex items-center justify-center">
-              <span className={`w-3 h-3 rounded-full ${dotColor} shadow-inner`} />
-            </div>
-          );
-        case 2:
-          return (
-            <div className="w-full h-full p-1.5 flex justify-between">
-              <span className={`w-2.5 h-2.5 rounded-full ${dotColor} self-start`} />
-              <span className={`w-2.5 h-2.5 rounded-full ${dotColor} self-end`} />
-            </div>
-          );
-        case 3:
-          return (
-            <div className="w-full h-full p-1.5 flex justify-between">
-              <span className={`w-2.5 h-2.5 rounded-full ${dotColor} self-start`} />
-              <span className={`w-2.5 h-2.5 rounded-full ${dotColor} self-center`} />
-              <span className={`w-2.5 h-2.5 rounded-full ${dotColor} self-end`} />
-            </div>
-          );
-        case 4:
-          return (
-            <div className="w-full h-full p-1.5 grid grid-cols-2 gap-1.5 place-items-center">
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-            </div>
-          );
-        case 5:
-          return (
-            <div className="w-full h-full p-1.5 grid grid-cols-3 place-items-center">
-              <span className={`w-2 h-2 rounded-full ${dotColor} col-start-1 row-start-1`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor} col-start-3 row-start-1`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor} col-start-2 row-start-2`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor} col-start-1 row-start-3`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor} col-start-3 row-start-3`} />
-            </div>
-          );
-        case 6:
-          return (
-            <div className="w-full h-full p-1.5 grid grid-cols-2 gap-1 place-items-center">
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-              <span className={`w-2 h-2 rounded-full ${dotColor}`} />
-            </div>
-          );
-        default:
-          return null;
-      }
-    };
-
-    return (
-      <div
-        className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center relative select-none transition-all duration-300 ${
-          isAttack
-            ? 'bg-gradient-to-br from-red-500 via-red-600 to-red-800 border-2 border-red-300/80 text-white shadow-xl shadow-red-950/60'
-            : 'bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-500 border-2 border-amber-100 text-stone-950 shadow-xl shadow-amber-950/60'
-        } ${lost ? 'opacity-35 grayscale scale-90 translate-y-1' : 'scale-100 hover:scale-105'} ${
-          rolling ? 'animate-dice-tumble' : ''
-        } ${isClashing ? 'animate-clash-flash scale-110 z-20' : ''}`}
-        style={{
-          boxShadow: lost
-            ? 'none'
-            : isAttack
-            ? 'inset 0 2px 4px rgba(255,255,255,0.4), inset 0 -3px 6px rgba(0,0,0,0.5), 0 6px 12px rgba(0,0,0,0.5)'
-            : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -3px 6px rgba(0,0,0,0.3), 0 6px 12px rgba(0,0,0,0.5)'
-        }}
-      >
-        {renderPips(val)}
-
-        {/* Casualty Cross Mark */}
-        {lost && (
-          <div className="absolute inset-0 flex items-center justify-center text-red-500 font-bold bg-black/30 rounded-xl sm:rounded-2xl">
-            <X className="w-8 h-8 sm:w-10 sm:h-10 stroke-[3] drop-shadow-md" />
-          </div>
-        )}
-
-        {/* Numeric Sub-Indicator */}
-        <span
-          className={`absolute bottom-0.5 right-1 sm:right-1.5 text-[8px] sm:text-[9px] font-black font-mono ${
-            isAttack ? 'text-red-200/80' : 'text-stone-800/80'
-          }`}
-        >
-          {val}
-        </span>
-      </div>
-    );
+    return <Dice key={index} value={val} type={isAttack ? 'attack' : 'defense'} isRolling={rolling} lost={lost} />;
   };
 
   return (

@@ -10,6 +10,7 @@ import { CONTINENTS } from '../data/continents';
 import { Shield, Crosshair, MoveRight, ZoomIn, ZoomOut, RotateCcw, Sparkles, Hand, Maximize2, Minimize2 } from 'lucide-react';
 import { WorldMapContours } from './WorldMapContours';
 import { ConquestExplosion } from './ConquestExplosion';
+import { AttackOverlay } from './AttackOverlay';
 
 export interface TerritoryChangeIndicator {
   delta: number;
@@ -471,8 +472,12 @@ export const Board: React.FC<BoardProps> = ({
                     onSelectTerritory(territory.id);
                   }
                 }}
-                onMouseEnter={() => setHoveredTerritory(territory)}
-                onMouseLeave={() => setHoveredTerritory(null)}
+                onMouseEnter={() => {
+                  if (hoveredTerritory?.id !== territory.id) setHoveredTerritory(territory);
+                }}
+                onMouseLeave={() => {
+                  setHoveredTerritory(prev => prev?.id === territory.id ? null : prev);
+                }}
               >
                 {/* Conquer Shockwave Ripple */}
                 {change && change.type === 'conquer' && (
@@ -830,6 +835,16 @@ export const Board: React.FC<BoardProps> = ({
               );
             })}
           </g>
+
+          {/* Attack Trajectory Overlay */}
+          {currentPhase === 'attack' && selectedTerritoryId && targetTerritoryId && TERRITORIES_MAP[selectedTerritoryId] && TERRITORIES_MAP[targetTerritoryId] && (
+            <AttackOverlay
+              startX={TERRITORIES_MAP[selectedTerritoryId].x}
+              startY={TERRITORIES_MAP[selectedTerritoryId].y}
+              endX={TERRITORIES_MAP[targetTerritoryId].x}
+              endY={TERRITORIES_MAP[targetTerritoryId].y}
+            />
+          )}
         </svg>
       </div>
 
