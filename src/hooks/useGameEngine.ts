@@ -11,9 +11,9 @@ import { CommandDispatch, CareerProfile, MilitaryRankId, MILITARY_RANKS } from '
 import { generateCommandDispatch, calculateNewRank, createReinforcementStepDispatch, evaluateSubordinateCombat, ActionType, processMilitaryAction, RANK_NAMES, generateInitialCampaignMissions, evaluateCampaignMissions } from '../services/careerEngine';
 import { useGameState } from './useGameState';
 import { TerritoryChangeIndicator } from '../components/Board';
+import { saveGameState as saveToStorage, loadGameState as loadFromStorage } from '../utils/storage';
 
 type GameState = ReturnType<typeof useGameState>;
-const LOCAL_STORAGE_KEY = 'warall_game_state_v1';
 
 export const useGameEngine = (gameState: GameState) => {
   const {
@@ -254,170 +254,118 @@ export const useGameEngine = (gameState: GameState) => {
     }));
   };
 
-  const LOCAL_STORAGE_KEY = 'warall_game_state_v1';
-
   // Save current game state to browser's localStorage
   const saveGameState = () => {
-    try {
-      if (playersRef.current.length === 0 || Object.keys(territoriesRef.current).length === 0) {
-        return;
-      }
-
-      const stateToSave = {
-        version: 1,
-        savedAt: Date.now(),
-        turnNumber: turnNumberRef.current,
-        currentPlayerIdx: currentPlayerIdxRef.current,
-        currentPhase,
-        availableArmiesToPlace,
-        exchangeCount,
-        territories: territoriesRef.current,
-        players: playersRef.current.map(p => ({
-          id: p.id,
-          name: p.name,
-          color: p.color,
-          isAi: p.isAi,
-          cards: p.cards,
-          objectiveId: p.objective?.id ?? 7,
-          eliminated: p.eliminated,
-          conqueredThisTurn: p.conqueredThisTurn
-        })),
-        deck: deckRef.current,
-        logs: logs.slice(0, 70),
-        roundHistory,
-        soundEnabled,
-        winnerId: winner ? winner.id : null,
-        careerProfile
-      };
-
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(stateToSave));
-    } catch (err) {
-      console.warn('Não foi possível salvar a partida no localStorage:', err);
+    if (playersRef.current.length === 0 || Object.keys(territoriesRef.current).length === 0) {
+      return;
     }
+
+    const stateToSave = {
+      version: 1,
+      savedAt: Date.now(),
+      turnNumber: turnNumberRef.current,
+      currentPlayerIdx: currentPlayerIdxRef.current,
+      currentPhase,
+      availableArmiesToPlace,
+      exchangeCount,
+      territories: territoriesRef.current,
+      players: playersRef.current.map(p => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        isAi: p.isAi,
+        cards: p.cards,
+        objectiveId: p.objective?.id ?? 7,
+        eliminated: p.eliminated,
+        conqueredThisTurn: p.conqueredThisTurn
+      })),
+      deck: deckRef.current,
+      logs: logs.slice(0, 70),
+      roundHistory,
+      soundEnabled,
+      winnerId: winner ? winner.id : null,
+      careerProfile
+    };
+
+    saveToStorage(stateToSave);
   };
 
   // Restore game state from browser's localStorage
   const loadGameState = (): boolean => {
-    try {
-      const savedRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!savedRaw) return false;
+    const saved = loadFromStorage();
+    if (!saved) return false;
 
-      const saved = JSON.parse(savedRaw);
-      if (
-        !saved ||
-        !saved.territories ||
-        !saved.players ||
-        !Array.isArray(saved.players) ||
-        saved.players.length === 0
-      ) {
-        return false;
-      }
+    // Update refs immediately to avoid stale closures
+    playersRef.current = saved.players;
+    territoriesRef.current = saved.territories;
+    turnNumberRef.current = Number(saved.turnNumber) || 1;
+    currentPlayerIdxRef.current = Number(saved.currentPlayerIdx) || 0;
+    deckRef.current = Array.isArray(saved.deck) ? saved.deck : [];
+    isAiRunningRef.current = false;
 
-      // Rehydrate players with original SecretObjective instances
-      const hydratedPlayers: Player[] = saved.players.map((sp: any) => {
-        const objective =
-          SECRET_OBJECTIVES.find(o => o.id === sp.objectiveId) ||
-          SECRET_OBJECTIVES.find(o => o.title === sp.objectiveTitle) ||
-          SECRET_OBJECTIVES[0];
+    // Update React state
+    setPlayers(saved.players);
+    setTerritories(saved.territories);
+    setTurnNumber(Number(saved.turnNumber) || 1);
+    setCurrentPlayerIdx(Number(saved.currentPlayerIdx) || 0);
+    setCurrentPhase(saved.currentPhase || 'reinforce');
+    setAvailableArmiesToPlace(Number(saved.availableArmiesToPlace) || 0);
+    setExchangeCount(Number(saved.exchangeCount) || 0);
+    setDeck(Array.isArray(saved.deck) ? saved.deck : []);
+    setLogs(
+      Array.isArray(saved.logs) && saved.logs.length > 0
+        ? [
+            {
+              id: `restore_${Date.now()}`,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              text: 'Partida restaurada do ponto salvo no navegador.',
+              type: 'system' as const
+            },
+            ...saved.logs
+          ]
+        : saved.logs || []
+    );
+    setRoundHistory(Array.isArray(saved.roundHistory) ? saved.roundHistory : []);
+    setSoundEnabled(saved.soundEnabled !== false);
 
-        return {
-          id: sp.id,
-          name: sp.name,
-          color: sp.color,
-          isAi: Boolean(sp.isAi),
-          cards: Array.isArray(sp.cards) ? sp.cards : [],
-          objective,
-          eliminated: Boolean(sp.eliminated),
-          conqueredThisTurn: Boolean(sp.conqueredThisTurn)
-        };
-      });
-
-      // Update refs immediately to avoid stale closures
-      playersRef.current = hydratedPlayers;
-      territoriesRef.current = saved.territories;
-      turnNumberRef.current = Number(saved.turnNumber) || 1;
-      currentPlayerIdxRef.current = Number(saved.currentPlayerIdx) || 0;
-      deckRef.current = Array.isArray(saved.deck) ? saved.deck : [];
-      isAiRunningRef.current = false;
-
-      // Update React state
-      setPlayers(hydratedPlayers);
-      setTerritories(saved.territories);
-      setTurnNumber(Number(saved.turnNumber) || 1);
-      setCurrentPlayerIdx(Number(saved.currentPlayerIdx) || 0);
-      setCurrentPhase(saved.currentPhase || 'reinforce');
-      setAvailableArmiesToPlace(Number(saved.availableArmiesToPlace) || 0);
-      setExchangeCount(Number(saved.exchangeCount) || 0);
-      setDeck(Array.isArray(saved.deck) ? saved.deck : []);
-      setLogs(
-        Array.isArray(saved.logs) && saved.logs.length > 0
-          ? [
-              {
-                id: `restore_${Date.now()}`,
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                text: 'Partida restaurada do ponto salvo no navegador.',
-                type: 'system' as const
-              },
-              ...saved.logs
-            ]
-          : saved.logs || []
-      );
-      setRoundHistory(Array.isArray(saved.roundHistory) ? saved.roundHistory : []);
-      setSoundEnabled(saved.soundEnabled !== false);
-
-      if (saved.winnerId) {
-        const winnerPlayer = hydratedPlayers.find(p => p.id === saved.winnerId) || null;
-        setWinner(winnerPlayer);
-        setShowVictoryModal(true);
-      } else {
-        setWinner(null);
-        setShowVictoryModal(false);
-      }
-
-      if (saved.careerProfile) {
-        setCareerProfile(saved.careerProfile);
-      }
-
-      setSelectedTerritoryId(null);
-      setTargetTerritoryId(null);
-      setShowDiceTray(false);
-      setShowFortifyModal(false);
-      setShowWarReportModal(false);
-
-      const activePlayer = hydratedPlayers[Number(saved.currentPlayerIdx) || 0];
-      if (activePlayer && activePlayer.isAi && !activePlayer.eliminated) {
-        setIsAiThinking(true);
-        setAiStatusMessage(`General ${activePlayer.name} está planejando a estratégia...`);
-        setTimeout(() => {
-          executeCompleteAiTurn(
-            Number(saved.currentPlayerIdx) || 0,
-            Number(saved.availableArmiesToPlace) || 0
-          );
-        }, 500);
-      } else {
-        setIsAiThinking(false);
-        setAiStatusMessage('');
-      }
-
-      return true;
-    } catch (err) {
-      console.warn('Erro ao carregar partida do localStorage:', err);
-      return false;
+    if (saved.winnerId) {
+      const winnerPlayer = saved.players.find(p => p.id === saved.winnerId) || null;
+      setWinner(winnerPlayer);
+      setShowVictoryModal(true);
+    } else {
+      setWinner(null);
+      setShowVictoryModal(false);
     }
+
+    if (saved.careerProfile) {
+      setCareerProfile(saved.careerProfile);
+    }
+
+    setSelectedTerritoryId(null);
+    setTargetTerritoryId(null);
+    setShowDiceTray(false);
+    setShowFortifyModal(false);
+    setShowWarReportModal(false);
+
+    const activePlayer = saved.players[Number(saved.currentPlayerIdx) || 0];
+    if (activePlayer && activePlayer.isAi && !activePlayer.eliminated) {
+      setIsAiThinking(true);
+      setAiStatusMessage(`General ${activePlayer.name} está planejando a estratégia...`);
+      setTimeout(() => {
+        executeCompleteAiTurn(
+          Number(saved.currentPlayerIdx) || 0,
+          Number(saved.availableArmiesToPlace) || 0
+        );
+      }, 500);
+    } else {
+      setIsAiThinking(false);
+      setAiStatusMessage('');
+    }
+
+    return true;
   };
 
-  // Start game on mount or load previously saved state
-  useEffect(() => {
-    const loaded = loadGameState();
-    if (!loaded) {
-      startNewGame([
-        { name: 'Marcus (Você)', color: 'blue', isAi: false },
-        { name: 'Gen. Montgomery', color: 'red', isAi: true },
-        { name: 'Gen. Rommel', color: 'yellow', isAi: true },
-        { name: 'Gen. Patton', color: 'green', isAi: true }
-      ]);
-    }
-  }, []);
+
 
   // Auto-save game state to localStorage whenever key match variables update
   useEffect(() => {

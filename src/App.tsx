@@ -24,6 +24,7 @@ import { createDeck, shuffleDeck } from './data/cards';
 import { sounds } from './utils/audio';
 
 // Components
+import { MainMenu } from './components/MainMenu';
 import { Board, TerritoryChangeIndicator } from './components/Board';
 import { WarRoomHeader } from './components/WarRoomHeader';
 import { DiceTray } from './components/DiceTray';
@@ -64,6 +65,29 @@ export default function App() {
     handleSelectTerritory, handleResolveCombat, handleConquerMove, handleConfirmFortify, handleExchangeCards,
     handleAutoDistributeReinforcements, handleAdvancePhase, passTurnToNext, toggleFullscreen, toggleSound, currentPlayer
   } = engine;
+
+  const [hasStarted, setHasStarted] = useState(false);
+
+  const handleNewGame = () => {
+    setHasStarted(true);
+    startNewGame([
+      { name: 'Marcus (Você)', color: 'blue', isAi: false },
+      { name: 'Gen. Montgomery', color: 'red', isAi: true },
+      { name: 'Gen. Rommel', color: 'yellow', isAi: true },
+      { name: 'Gen. Patton', color: 'green', isAi: true }
+    ]);
+  };
+
+  const handleResumeGame = () => {
+    const loaded = loadGameState();
+    if (loaded) {
+      setHasStarted(true);
+    }
+  };
+
+  if (!hasStarted) {
+    return <MainMenu onNewGame={handleNewGame} onResumeGame={handleResumeGame} />;
+  }
 
   return (
     <div className={`h-[100dvh] w-full bg-stone-950 text-stone-100 flex flex-col font-sans selection:bg-amber-700 selection:text-white overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50 w-screen h-screen' : ''}`}>
