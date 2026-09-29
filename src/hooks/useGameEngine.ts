@@ -3,12 +3,12 @@ import { Player, TerritoryState, GamePhase, CombatResult, GameLog as GameLogType
 import { TERRITORIES, TERRITORIES_MAP } from '../data/territories';
 import { CONTINENTS } from '../data/continents';
 import { SECRET_OBJECTIVES } from '../data/objectives';
-import { createDeck, shuffleDeck } from '../data/cards';
+import { createDeck, shuffleDeck, getExchangeBonus } from '../data/cards';
 import { sounds } from '../utils/audio';
 import { calculateBestDeployTargets, determineNextAttack, calculateFortification, findAiCardSetToExchange } from '../services/aiEngine';
 import { PlayerProfile } from '../types/player';
 import { CommandDispatch, CareerProfile, MilitaryRankId, MILITARY_RANKS } from '../types/career';
-import { generateCommandDispatch, calculateNewRank, createReinforcementStepDispatch, evaluateSubordinateCombat, ActionType, processMilitaryAction, RANK_NAMES } from '../services/careerEngine';
+import { generateCommandDispatch, calculateNewRank, createReinforcementStepDispatch, evaluateSubordinateCombat, ActionType, processMilitaryAction, RANK_NAMES, generateInitialCampaignMissions, evaluateCampaignMissions } from '../services/careerEngine';
 import { useGameState } from './useGameState';
 import { TerritoryChangeIndicator } from '../components/Board';
 
@@ -244,6 +244,14 @@ export const useGameEngine = (gameState: GameState) => {
     setLogs([]);
     addLog(`A partida de Warall foi iniciada com ${newPlayers.length} generais.`, 'system');
     addLog(`Turno 1: General ${p1.name} inicia com +${initialReinforce} tropas para posicionar.`, 'turn', p1.color);
+
+    // Initialize Campaign Missions for human player in Career Mode
+    const humanPlayer = newPlayers.find(p => !p.isAi) || newPlayers[0];
+    const initialMissions = generateInitialCampaignMissions(humanPlayer, initialTerritoryState);
+    setCareerProfile(prev => ({
+      ...prev,
+      activeMissions: initialMissions
+    }));
   };
 
   const LOCAL_STORAGE_KEY = 'warall_game_state_v1';
@@ -723,6 +731,29 @@ export const useGameEngine = (gameState: GameState) => {
     if (!currentPlayer.isAi) {
       addXp(10, 'Conquista de território');
       setLastConqueredTerritory(targetTerritoryId);
+
+      // Evaluate Blitzkrieg & Iron Defense campaign missions
+      if (careerProfile.careerModeActive && careerProfile.activeMissions) {
+        const evalResult = evaluateCampaignMissions(
+          careerProfile.activeMissions,
+          currentPlayer,
+          territoriesRef.current,
+          { conqueredThisTurn: true, conqueredTotal: careerProfile.territoriesConquered + 1 }
+        );
+
+        if (evalResult.completedMissions.length > 0) {
+          evalResult.completedMissions.forEach(m => {
+            addLog(`🎖️ [MISSÃO CUMPRIDA] ${m.title}! (+${m.xpReward} XP)`, 'conquer', currentPlayer.color);
+            sounds.playVictory();
+          });
+          addXp(evalResult.totalXpAwarded, 'Missão de Campanha Cumprida');
+        }
+
+        setCareerProfile(prev => ({
+          ...prev,
+          activeMissions: evalResult.updatedMissions
+        }));
+      }
     }
 
     checkElimination(targetTerritoryId);
@@ -1027,6 +1058,32 @@ export const useGameEngine = (gameState: GameState) => {
       turnNumberRef.current = newTurn;
       setTurnNumber(newTurn);
       recordRoundSnapshot(newTurn, playersRef.current, territoriesRef.current);
+
+      // Evaluate Campaign Missions for human players
+      if (careerProfile.careerModeActive) {
+        const humanPlayer = playersRef.current.find(p => !p.isAi);
+        if (humanPlayer && careerProfile.activeMissions && careerProfile.activeMissions.length > 0) {
+          const evalResult = evaluateCampaignMissions(
+            careerProfile.activeMissions,
+            humanPlayer,
+            territoriesRef.current,
+            { roundCompleted: true, conqueredTotal: careerProfile.territoriesConquered }
+          );
+
+          if (evalResult.completedMissions.length > 0) {
+            evalResult.completedMissions.forEach(m => {
+              addLog(`🎖️ [MISSÃO CUMPRIDA] ${m.title}! (+${m.xpReward} XP)`, 'conquer', humanPlayer.color);
+              sounds.playVictory();
+            });
+            addXp(evalResult.totalXpAwarded, 'Missões de Campanha Concluídas');
+          }
+
+          setCareerProfile(prev => ({
+            ...prev,
+            activeMissions: evalResult.updatedMissions
+          }));
+        }
+      }
     } else {
       recordRoundSnapshot(turnNumberRef.current, playersRef.current, territoriesRef.current);
     }
@@ -1094,7 +1151,7 @@ export const useGameEngine = (gameState: GameState) => {
       setCurrentPhase('reinforce');
       await new Promise(r => setTimeout(r, 400));
 
-      // Check if AI can exchange cards
+      // Check if AI can exchange cards automatically
       let totalReinforcements = reinforcePool;
       const cardSet = findAiCardSetToExchange(aiPlayer);
       if (cardSet) {
@@ -1108,10 +1165,37 @@ export const useGameEngine = (gameState: GameState) => {
           playersRef.current = updated;
           return updated;
         });
-        totalReinforcements += 6;
+
+        // Official progression bonus (4, 6, 8, 10, 12, 15, 20...)
+        const bonusArmies = getExchangeBonus(exchangeCount);
+        totalReinforcements += bonusArmies;
+
+        // Apply +2 directly to owned territories on cards if AI owns them
+        let territoryBonusCount = 0;
+        const nextTerrAfterCardBonus = { ...territoriesRef.current };
+        cardSet.forEach(c => {
+          if (c.territoryId && nextTerrAfterCardBonus[c.territoryId]?.playerId === aiPlayer.id) {
+            nextTerrAfterCardBonus[c.territoryId] = {
+              ...nextTerrAfterCardBonus[c.territoryId],
+              armies: nextTerrAfterCardBonus[c.territoryId].armies + 2
+            };
+            triggerTerritoryChange(c.territoryId, 2, 'gain');
+            territoryBonusCount += 2;
+          }
+        });
+        if (territoryBonusCount > 0) {
+          territoriesRef.current = nextTerrAfterCardBonus;
+          setTerritories(nextTerrAfterCardBonus);
+        }
+
         setExchangeCount(prev => prev + 1);
-        addLog(`IA ${aiPlayer.name} trocou cartas por +6 tropas de reforço!`, 'trade', aiPlayer.color);
-        await new Promise(r => setTimeout(r, 300));
+        sounds.playCard();
+        addLog(
+          `IA ${aiPlayer.name} trocou cartas por +${bonusArmies} tropas de reforço${territoryBonusCount > 0 ? ` (+${territoryBonusCount} tropas bônus em seus territórios)` : ''}!`,
+          'trade',
+          aiPlayer.color
+        );
+        await new Promise(r => setTimeout(r, 400));
       }
 
       // Place Reinforcements on frontier territories

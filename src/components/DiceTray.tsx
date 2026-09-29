@@ -151,8 +151,8 @@ export const DiceTray: React.FC<DiceTrayProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRoll]);
 
-  const renderDieFace = (val: number, isAttack: boolean, lost: boolean, index: number) => {
-    return <Dice key={index} value={val} type={isAttack ? 'attack' : 'defense'} isRolling={rolling} lost={lost} />;
+  const renderDieFace = (val: number, isAttack: boolean, lost: boolean, won: boolean, index: number) => {
+    return <Dice key={index} value={val} type={isAttack ? 'attack' : 'defense'} isRolling={rolling} lost={lost} won={won} />;
   };
 
   return (
@@ -249,9 +249,10 @@ export const DiceTray: React.FC<DiceTrayProps> = ({
                     ? displayRolls.atk.map((val, idx) => {
                         const defVal = lastResult ? lastResult.defenseDice[idx] : undefined;
                         const lost = Boolean(lastResult && defVal !== undefined && val <= defVal);
+                        const won = Boolean(lastResult && defVal !== undefined && val > defVal);
                         return (
                           <div key={idx} className="flex flex-col items-center gap-1">
-                            {renderDieFace(val, true, lost, idx)}
+                            {renderDieFace(val, true, lost, won, idx)}
                             {lastResult && (
                               <span className="text-[9px] text-stone-400 font-mono">
                                 {idx + 1}º
@@ -305,9 +306,10 @@ export const DiceTray: React.FC<DiceTrayProps> = ({
                     ? displayRolls.def.map((val, idx) => {
                         const atkVal = lastResult ? lastResult.attackDice[idx] : undefined;
                         const lost = Boolean(lastResult && atkVal !== undefined && atkVal > val);
+                        const won = Boolean(lastResult && atkVal !== undefined && val >= atkVal);
                         return (
                           <div key={idx} className="flex flex-col items-center gap-1">
-                            {renderDieFace(val, false, lost, idx)}
+                            {renderDieFace(val, false, lost, won, idx)}
                             {lastResult && (
                               <span className="text-[9px] text-stone-400 font-mono">
                                 {idx + 1}º
@@ -349,14 +351,16 @@ export const DiceTray: React.FC<DiceTrayProps> = ({
 
           {/* Territory Conquered Section (when conquered) */}
           {isConquered && (
-            <div className="p-4 sm:p-5 bg-stone-900 space-y-3 animate-in fade-in duration-300">
-              <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-center">
-                <div className="inline-flex items-center gap-1.5 text-amber-300 font-black text-base sm:text-lg uppercase tracking-wider font-serif">
-                  <Flame className="w-5 h-5 text-amber-400 animate-bounce" />
+            <div className="p-4 sm:p-5 bg-stone-900 space-y-3 animate-in fade-in zoom-in-95 duration-300 animate-conquer-impact">
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-600/25 via-amber-500/35 to-amber-600/25 border-2 border-amber-400/70 text-center shadow-lg shadow-amber-500/20 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse pointer-events-none" />
+                <div className="inline-flex items-center gap-2 text-amber-200 font-black text-base sm:text-xl uppercase tracking-wider font-serif drop-shadow-md">
+                  <Flame className="w-6 h-6 text-amber-400 animate-bounce" />
                   <span>Território Conquistado!</span>
+                  <Sparkles className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
                 </div>
-                <p className="text-xs text-stone-300 mt-0.5">
-                  A guarnição inimiga foi expulsa de <strong>{toTerritory.name}</strong>!
+                <p className="text-xs text-stone-200 font-medium mt-1">
+                  A guarnição inimiga foi expulsa de <strong className="text-amber-300 font-bold">{toTerritory.name}</strong>!
                 </p>
               </div>
 

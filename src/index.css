@@ -109,6 +109,22 @@
       stroke-width: 3.5;
     }
   }
+
+  /* Victory Dice Impact Celebration */
+  @keyframes diceVictoryPop {
+    0% { transform: scale(1); filter: drop-shadow(0 0 0px #f59e0b); }
+    50% { transform: scale(1.18); filter: drop-shadow(0 0 16px #f59e0b); }
+    100% { transform: scale(1); filter: drop-shadow(0 0 4px #f59e0b); }
+  }
+
+  /* Screen Shake for Big Conquers */
+  @keyframes conquerImpact {
+    0% { transform: scale(1) translate(0, 0); }
+    20% { transform: scale(1.02) translate(-2px, 2px); }
+    40% { transform: scale(1.01) translate(3px, -2px); }
+    60% { transform: scale(1.005) translate(-1px, 1px); }
+    100% { transform: scale(1) translate(0, 0); }
+  }
 }
 
 .animate-dice-tumble {
@@ -137,4 +153,12 @@
 
 .animate-frontier-pulse {
   animation: frontierPulse 2s ease-in-out infinite;
+}
+
+.animate-dice-victory {
+  animation: diceVictoryPop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-conquer-impact {
+  animation: conquerImpact 0.45s ease-out;
 }

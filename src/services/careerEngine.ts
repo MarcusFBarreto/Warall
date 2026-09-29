@@ -1,4 +1,4 @@
-import { MilitaryRankId, CareerProfile, CommandDispatch, MILITARY_RANKS, SubordinateOutcome } from '../types/career';
+import { MilitaryRankId, CareerProfile, CommandDispatch, MILITARY_RANKS, SubordinateOutcome, CampaignMission } from '../types/career';
 import { Player, TerritoryState, GamePhase, CombatResult } from '../types/game';
 import { TERRITORIES_MAP } from '../data/territories';
 
@@ -544,4 +544,125 @@ export function evaluateSubordinateCombat(
     logMessage: `📋 [ESTADO-MAIOR] A investida em ${toName} divergiu da diretriz do Comando e resultou em atrito neutro.`,
     outcomeType: 'deviated_neutral'
   };
+}
+
+// ==========================================
+// MISSÕES ESPECÍFICAS DE CAMPANHA MILITAR
+// ==========================================
+export function generateInitialCampaignMissions(
+  player: Player,
+  territories: Record<string, TerritoryState>
+): CampaignMission[] {
+  const owned = Object.values(territories).filter(t => t.playerId === player.id);
+  const baseTerritory = owned.reduce((best, curr) => (curr.armies > (best?.armies || 0) ? curr : best), owned[0]);
+  const baseId = baseTerritory?.territoryId || 'brazil';
+  const baseName = TERRITORIES_MAP[baseId]?.name || 'Base de Operações';
+
+  return [
+    {
+      id: 'mission_hold_base',
+      title: `Operação Sentinela: Manter ${baseName}`,
+      description: `Mantenha sob controle sua principal base de comando (${baseName}) por 5 rodadas consecutivas sem deixá-la cair nas mãos inimigas.`,
+      icon: '🛡️',
+      category: 'hold_base',
+      xpReward: 120,
+      targetCount: 5,
+      currentCount: 0,
+      completed: false,
+      metadata: {
+        baseTerritoryId: baseId,
+        turnsRequired: 5,
+        turnsSurvived: 0
+      }
+    },
+    {
+      id: 'mission_blitzkrieg',
+      title: 'Blitzkrieg: Ofensiva Relâmpago',
+      description: 'Conquiste pelo menos 3 territórios inimigos ao longo da campanha.',
+      icon: '⚡',
+      category: 'blitzkrieg',
+      xpReward: 100,
+      targetCount: 3,
+      currentCount: 0,
+      completed: false
+    },
+    {
+      id: 'mission_iron_defense',
+      title: 'Muralha de Ferro: Bastião com 5+ Tropas',
+      description: 'Fortifique qualquer território com pelo menos 5 exércitos estacionados para criar uma fortaleza inexpugnável.',
+      icon: '🏰',
+      category: 'iron_defense',
+      xpReward: 80,
+      targetCount: 1,
+      currentCount: 0,
+      completed: false
+    }
+  ];
+}
+
+export function evaluateCampaignMissions(
+  missions: CampaignMission[],
+  player: Player,
+  territories: Record<string, TerritoryState>,
+  events: {
+    roundCompleted?: boolean;
+    conqueredThisTurn?: boolean;
+    conqueredTotal?: number;
+  }
+): { updatedMissions: CampaignMission[]; completedMissions: CampaignMission[]; totalXpAwarded: number } {
+  let totalXpAwarded = 0;
+  const completedMissions: CampaignMission[] = [];
+
+  const updatedMissions = missions.map(mission => {
+    if (mission.completed) return mission;
+
+    const updated = { ...mission };
+
+    // 1. Missão: Segurar Base por X rodadas
+    if (mission.category === 'hold_base' && events.roundCompleted) {
+      const baseId = mission.metadata?.baseTerritoryId;
+      const holdsBase = baseId && territories[baseId]?.playerId === player.id;
+      if (holdsBase) {
+        const nextCount = (mission.currentCount || 0) + 1;
+        updated.currentCount = nextCount;
+        if (nextCount >= mission.targetCount) {
+          updated.completed = true;
+          updated.completedAt = new Date().toISOString();
+          totalXpAwarded += mission.xpReward;
+          completedMissions.push(updated);
+        }
+      } else {
+        updated.currentCount = 0;
+      }
+    }
+
+    // 2. Missão: Blitzkrieg (conquista de territórios)
+    if (mission.category === 'blitzkrieg' && events.conqueredTotal !== undefined) {
+      updated.currentCount = events.conqueredTotal;
+      if (updated.currentCount >= mission.targetCount) {
+        updated.completed = true;
+        updated.completedAt = new Date().toISOString();
+        totalXpAwarded += mission.xpReward;
+        completedMissions.push(updated);
+      }
+    }
+
+    // 3. Missão: Muralha de Ferro (ao menos 1 território com 5+ tropas)
+    if (mission.category === 'iron_defense') {
+      const hasFortress = Object.values(territories).some(
+        t => t.playerId === player.id && t.armies >= 5
+      );
+      if (hasFortress) {
+        updated.currentCount = 1;
+        updated.completed = true;
+        updated.completedAt = new Date().toISOString();
+        totalXpAwarded += mission.xpReward;
+        completedMissions.push(updated);
+      }
+    }
+
+    return updated;
+  });
+
+  return { updatedMissions, completedMissions, totalXpAwarded };
 }

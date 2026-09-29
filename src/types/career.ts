@@ -92,6 +92,27 @@ export interface CommandDispatch {
   actionTakenText?: string;
 }
 
+export type CampaignMissionCategory = 'hold_base' | 'blitzkrieg' | 'continent_siege' | 'iron_defense' | 'general_hunter';
+
+export interface CampaignMission {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  xpReward: number;
+  category: CampaignMissionCategory;
+  targetCount: number;
+  currentCount: number;
+  completed: boolean;
+  completedAt?: string;
+  metadata?: {
+    baseTerritoryId?: string;
+    targetContinentId?: string;
+    turnsRequired?: number;
+    turnsSurvived?: number;
+  };
+}
+
 export interface CareerProfile {
   xp: number;
   rankId: MilitaryRankId;
@@ -101,4 +122,6 @@ export interface CareerProfile {
   continentsConquered: number;
   generalsDefeated: number;
   campaignsWon: number;
+  activeMissions?: CampaignMission[];
+  completedMissionIds?: string[];
 }

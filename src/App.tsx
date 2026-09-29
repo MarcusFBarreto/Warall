@@ -36,6 +36,7 @@ import { RulebookModal } from './components/RulebookModal';
 import { NewGameModal } from './components/NewGameModal';
 import { WarReportModal } from './components/WarReportModal';
 import { CommandAdvisorBar } from './components/CommandAdvisorBar';
+import { EnlistmentModal } from './components/EnlistmentModal';
 import { CommandDispatch, CareerProfile, MilitaryRankId, MILITARY_RANKS } from './types/career';
 import { Bot, Loader2, Sparkles, Swords, Check, ArrowRight, Shield, TrendingUp } from 'lucide-react';
 
@@ -90,6 +91,7 @@ export default function App() {
           winner={winner}
           onOpenVictory={() => setShowVictoryModal(true)}
           onNewGame={() => setShowNewGameModal(true)}
+          onResetProfile={handleResetProfile}
           onAdvancePhase={handleAdvancePhase}
           onAutoDistribute={handleAutoDistributeReinforcements}
         />
@@ -294,6 +296,11 @@ export default function App() {
           }}
           initialCareerMode={careerProfile.careerModeActive}
         />
+      )}
+
+      {/* Enlistment Modal (shown if player has no profile yet) */}
+      {!playerProfile && (
+        <EnlistmentModal onEnlist={handleEnlist} />
       )}
     </div>
   );

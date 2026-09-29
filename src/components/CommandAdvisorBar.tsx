@@ -161,6 +161,50 @@ export const CommandAdvisorBar: React.FC<CommandAdvisorBarProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* Campaign Missions Tracker in Expanded Dossier */}
+                {careerProfile.activeMissions && careerProfile.activeMissions.length > 0 && (
+                  <div className="mt-3 pt-2.5 border-t border-stone-800/80">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-300 uppercase tracking-wider mb-2">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Diretrizes e Missões de Campanha</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {careerProfile.activeMissions.map(m => (
+                        <div
+                          key={m.id}
+                          className={`p-2 rounded-lg border text-left flex flex-col justify-between transition ${
+                            m.completed
+                              ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200'
+                              : 'bg-stone-900/80 border-stone-800 text-stone-300'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-sm">{m.icon}</span>
+                              <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded ${
+                                m.completed ? 'bg-emerald-600/30 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                              }`}>
+                                +{m.xpReward} XP
+                              </span>
+                            </div>
+                            <div className="text-[10.5px] font-bold truncate text-white">{m.title}</div>
+                            <div className="text-[9.5px] text-stone-400 line-clamp-2 mt-0.5 leading-tight">{m.description}</div>
+                          </div>
+
+                          <div className="mt-2 pt-1.5 border-t border-stone-800/50 flex items-center justify-between text-[9px]">
+                            <span className="text-stone-400">
+                              {m.completed ? 'Concluída' : `Progresso: ${m.currentCount}/${m.targetCount}`}
+                            </span>
+                            {m.completed && (
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

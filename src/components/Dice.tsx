@@ -7,9 +7,10 @@ interface DiceProps {
   type: 'attack' | 'defense';
   isRolling: boolean;
   lost?: boolean; // Se foi perdido na batalha
+  won?: boolean;  // Se venceu o duelo direto
 }
 
-export function Dice({ value, type, isRolling, lost }: DiceProps) {
+export function Dice({ value, type, isRolling, lost, won }: DiceProps) {
   const isAttack = type === 'attack';
   
   // Custom pips rendering based on dice value
@@ -78,10 +79,12 @@ export function Dice({ value, type, isRolling, lost }: DiceProps) {
         isAttack
           ? 'bg-gradient-to-br from-red-500 via-red-600 to-red-800 border-2 border-red-300/80 text-white shadow-red-950/60'
           : 'bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-500 border-2 border-amber-100 text-stone-900 shadow-amber-950/60'
-      } ${lost ? 'opacity-40 grayscale' : ''}`}
+      } ${lost ? 'opacity-40 grayscale' : ''} ${won && !isRolling ? 'ring-4 ring-amber-400/90 ring-offset-2 ring-offset-stone-950 animate-dice-victory' : ''}`}
       style={{
         boxShadow: lost
           ? 'none'
+          : won && !isRolling
+          ? '0 0 20px 6px rgba(245, 158, 11, 0.75), inset 0 2px 4px rgba(255,255,255,0.8)'
           : isAttack
           ? 'inset 0 2px 4px rgba(255,255,255,0.4), inset 0 -3px 6px rgba(0,0,0,0.5), 0 6px 12px rgba(0,0,0,0.5)'
           : 'inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -3px 6px rgba(0,0,0,0.3), 0 6px 12px rgba(0,0,0,0.5)'
@@ -93,10 +96,10 @@ export function Dice({ value, type, isRolling, lost }: DiceProps) {
         rotateY: [0, -180, -360, -180, 0], // Gira no eixo vertical
         scale: [1, 1.3, 1.1, 1.2, 1] // Dá uma inflada no ar
       } : {
-        y: lost ? 4 : 0, 
+        y: lost ? 4 : won ? -2 : 0, 
         rotateX: 0, 
         rotateY: 0, 
-        scale: lost ? 0.9 : 1
+        scale: lost ? 0.9 : won ? 1.08 : 1
       }}
       transition={{
         duration: 0.6,
@@ -108,6 +111,12 @@ export function Dice({ value, type, isRolling, lost }: DiceProps) {
       <div className="w-full h-full flex items-center justify-center">
         {isRolling ? <Dices className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse text-white/50" /> : renderPips(value)}
       </div>
+
+      {won && !isRolling && (
+        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-amber-400 text-stone-950 flex items-center justify-center text-[10px] font-black shadow-md border border-white">
+          ★
+        </span>
+      )}
 
       {lost && !isRolling && (
         <div className="absolute inset-0 flex items-center justify-center text-red-500 font-bold bg-black/30 rounded-xl sm:rounded-2xl">
