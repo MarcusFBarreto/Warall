@@ -632,24 +632,23 @@ export const useGameEngine = (gameState: GameState) => {
 
   // Resolve Combat Result from DiceTray with casualty animations
   const handleResolveCombat = (result: CombatResult) => {
-    setTerritories(prev => {
-      const fromArmies = prev[result.fromTerritoryId].armies - result.attackerLosses;
-      const toArmies = prev[result.toTerritoryId].armies - result.defenderLosses;
+    const prev = territoriesRef.current;
+    const fromArmies = prev[result.fromTerritoryId].armies - result.attackerLosses;
+    const toArmies = prev[result.toTerritoryId].armies - result.defenderLosses;
 
-      const updated = {
-        ...prev,
-        [result.fromTerritoryId]: {
-          ...prev[result.fromTerritoryId],
-          armies: Math.max(1, fromArmies)
-        },
-        [result.toTerritoryId]: {
-          ...prev[result.toTerritoryId],
-          armies: Math.max(0, toArmies)
-        }
-      };
-      territoriesRef.current = updated;
-      return updated;
-    });
+    const updated = {
+      ...prev,
+      [result.fromTerritoryId]: {
+        ...prev[result.fromTerritoryId],
+        armies: Math.max(1, fromArmies)
+      },
+      [result.toTerritoryId]: {
+        ...prev[result.toTerritoryId],
+        armies: Math.max(0, toArmies)
+      }
+    };
+    territoriesRef.current = updated;
+    setTerritories(updated);
 
     if (result.attackerLosses > 0) {
       triggerTerritoryChange(result.fromTerritoryId, -result.attackerLosses, 'loss');
@@ -697,33 +696,31 @@ export const useGameEngine = (gameState: GameState) => {
 
     sounds.playTroopMovement(movedArmies);
 
-    setTerritories(prev => {
-      const fromCurrent = prev[selectedTerritoryId].armies;
-      const toCurrent = prev[targetTerritoryId].armies;
+    const prev = territoriesRef.current;
+    const fromCurrent = prev[selectedTerritoryId].armies;
+    const toCurrent = prev[targetTerritoryId].armies;
 
-      const updated = {
-        ...prev,
-        [selectedTerritoryId]: {
-          ...prev[selectedTerritoryId],
-          armies: Math.max(1, fromCurrent - movedArmies)
-        },
-        [targetTerritoryId]: {
-          territoryId: targetTerritoryId,
-          playerId: currentPlayer.id,
-          armies: toCurrent + movedArmies
-        }
-      };
-      territoriesRef.current = updated;
-      return updated;
-    });
+    const updatedTerritories = {
+      ...prev,
+      [selectedTerritoryId]: {
+        ...prev[selectedTerritoryId],
+        armies: Math.max(1, fromCurrent - movedArmies)
+      },
+      [targetTerritoryId]: {
+        territoryId: targetTerritoryId,
+        playerId: currentPlayer.id,
+        armies: toCurrent + movedArmies
+      }
+    };
+    territoriesRef.current = updatedTerritories;
+    setTerritories(updatedTerritories);
 
     triggerTerritoryChange(targetTerritoryId, movedArmies, 'conquer');
 
-    setPlayers(prev => {
-      const updated = prev.map(p => (p.id === currentPlayer.id ? { ...p, conqueredThisTurn: true } : p));
-      playersRef.current = updated;
-      return updated;
-    });
+    const prevPlayers = playersRef.current;
+    const updatedPlayers = prevPlayers.map(p => (p.id === currentPlayer.id ? { ...p, conqueredThisTurn: true } : p));
+    playersRef.current = updatedPlayers;
+    setPlayers(updatedPlayers);
 
     const toName = TERRITORIES_MAP[targetTerritoryId]?.name;
     addLog(`${currentPlayer.name} conquistou ${toName} e deslocou ${movedArmies} tropas!`, 'conquer', currentPlayer.color);
